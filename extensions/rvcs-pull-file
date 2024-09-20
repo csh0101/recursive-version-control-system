@@ -48,7 +48,7 @@ if [ ! -f "${bundlePath}" ]; then
 fi
 
 rvcs import "${bundlePath}" >&2
-unzip -p "${bundlePath}" "metadata/signature" | tr -d "[:space:]" > "${outFile}"
+unzip -p "${bundlePath}" "metadata/signature" | tr -d "[:space:]" >"${outFile}"
 for previousBundle in $(unzip -p "${bundlePath}" "metadata/previous"); do
   additional=$(rvcs import -v "${previousBundle}")
   if [ "${additional}" == "" ]; then

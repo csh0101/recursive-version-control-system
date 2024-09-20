@@ -42,6 +42,7 @@ var (
 )
 
 func snapshotCommand(ctx context.Context, s *storage.LocalFiles, cmd string, args []string) (int, error) {
+	fmt.Println("my tag")
 	snapshotFlags.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), snapshotUsage, cmd)
 		snapshotFlags.PrintDefaults()
@@ -62,11 +63,15 @@ func snapshotCommand(ctx context.Context, s *storage.LocalFiles, cmd string, arg
 		}
 	}
 
+	fmt.Println(len(additionalParents))
+
 	var path string
 	if len(args) > 0 {
 		path = args[0]
+		fmt.Println("path:", path)
 	} else {
 		wd, err := os.Getwd()
+		fmt.Println("wd: ", wd)
 		if err != nil {
 			return 1, fmt.Errorf("failure determining the current working directory: %v\n", err)
 		}

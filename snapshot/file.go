@@ -22,7 +22,7 @@ import (
 )
 
 // File is the top-level object in a snapshot.
-//
+// 文件编码了文件的整个、传递的历史。如果文件是一个目录，那么这个历史也包括了该目录的所有子目录的历史。
 // File encodes the entire, transitive history of a file. If the file is
 // a directory, then this history also includes the histories for all
 // of the children of that directory.
@@ -62,6 +62,7 @@ func (f *File) IsDir() bool {
 		return false
 	}
 	return strings.HasPrefix(f.Mode, "d")
+
 }
 
 // IsLink reports whether or not the file is the snapshot of a symbolic link.

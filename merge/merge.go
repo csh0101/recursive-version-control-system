@@ -30,6 +30,7 @@ import (
 )
 
 func IsAncestor(ctx context.Context, s *storage.LocalFiles, base, h *snapshot.Hash) (bool, error) {
+	// 空快照是所有快照的祖先
 	if base == nil {
 		// The nil snapshot is an ancestor of all other snapshots.
 		return true, nil
@@ -46,6 +47,7 @@ func IsAncestor(ctx context.Context, s *storage.LocalFiles, base, h *snapshot.Ha
 	return false, nil
 }
 
+// 合并两个快照，并且有一个基准快照作为参考
 func mergeWithBase(ctx context.Context, s *storage.LocalFiles, subPath snapshot.Path, base, src, dest *snapshot.Hash, forceKeepMode bool) (*snapshot.Hash, error) {
 	// First we handle the trivial cases where the merge result should
 	// just be one of the two provided snapshots.
@@ -66,11 +68,15 @@ func mergeWithBase(ctx context.Context, s *storage.LocalFiles, subPath snapshot.
 	if src == nil || dest == nil {
 		return nil, fmt.Errorf("the nested snapshot under the path %q was deleted in either the source or destination snapshot, so the two snapshots have to be manually merged", subPath)
 	}
+	// 分开来判断是不是两个快照的祖先
 	if isAncestor, err := IsAncestor(ctx, s, base, src); err != nil {
 		return nil, err
 	} else if !isAncestor {
 		// The changes from the base snapshot were rolled back in
 		// the source...
+		// 缺乏共同的基准：如果 base 不是 src 或 dest 的祖先，说明这两个版本的变更没有一个共同的起点。这样的话，自动合并无法确定哪些变更是独立的，哪些是冲突的。
+		// 变更回滚：如果 src 或 dest 没有 base 作为祖先，可能意味着某些变更在这些版本中被回滚了。自动合并无法判断这些回滚是否是有意的，可能会错误地重新引入这些变更。
+		// 冲突处理：没有共同祖先的情况下，自动合并无法有效地处理冲突。手动合并可以让用户明确地决定如何处理这些冲突，确保合并结果是正确的
 		return nil, fmt.Errorf("nested changes under the path %q were rolled back in the source snapshot, so the two snapshots have to be manually merged", subPath)
 	}
 	if isAncestor, err := IsAncestor(ctx, s, base, dest); err != nil {
@@ -101,10 +107,13 @@ func mergeWithBase(ctx context.Context, s *storage.LocalFiles, subPath snapshot.
 
 	// If either the source or the destination are symbolic links, then
 	// the user has to manually merge them.
+	// 如果是符号连接就需要手动合并
+	// 如果不是目录，就调用mergeHelper函数进行合并
 	if srcFile.IsLink() || destFile.IsLink() {
 		return nil, fmt.Errorf("one or both versions of the snapshot at %q represent a symlink, so the two snapshots for that path have to be manually merged", subPath)
 	}
 
+	// 如果有一个不是文件就使用额外的合并工具来合并
 	if !(srcFile.IsDir() && destFile.IsDir()) {
 		return mergeWithHelper(ctx, s, subPath, destFile.Mode, base, src, dest)
 	}
@@ -146,6 +155,7 @@ func mergeWithBase(ctx context.Context, s *storage.LocalFiles, subPath snapshot.
 		childBase := baseTree[p]
 		childSrc := srcTree[p]
 		childDest := destTree[p]
+		// 递归合并孩子
 		mergedChild, err := mergeWithBase(ctx, s, childSubPath, childBase, childSrc, childDest, forceKeepMode)
 		if err != nil {
 			nestedErrors = append(nestedErrors, err.Error())
@@ -154,24 +164,30 @@ func mergeWithBase(ctx context.Context, s *storage.LocalFiles, subPath snapshot.
 			mergedTree[p] = mergedChild
 		}
 	}
+	// 权限不匹配的话也会报错
 	if srcFile.Mode != destFile.Mode && !forceKeepMode {
 		nestedErrors = append(nestedErrors, fmt.Sprintf("file permissions for %q do not match between versions; source mode line: %q, destination mode line %q. Manually update the permissions for the source to match what you want for the merge result, and then re-run the merge with the option to force using the source permissions", subPath, srcFile.Mode, destFile.Mode))
 	}
+	// 子路径报错
 	if len(nestedErrors) > 0 {
 		return nil, errors.New(strings.Join(nestedErrors, "\n"))
 	}
 
+	// 字典序排序 排出来一致就行了
 	contentsBytes := []byte(mergedTree.String())
 	contentsHash, err := s.StoreObject(ctx, int64(len(contentsBytes)), bytes.NewReader(contentsBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failure storing the contents of a merged tree: %v", err)
 	}
+	// 合并之后的快照文件
 	mergedFile := &snapshot.File{
 		Mode:     srcFile.Mode,
 		Contents: contentsHash,
-		Parents:  []*snapshot.Hash{src, dest},
+		// 双亲节点是两个快照
+		Parents: []*snapshot.Hash{src, dest},
 	}
 	fileBytes := []byte(mergedFile.String())
+	// 把文件存起来
 	h, err := s.StoreObject(ctx, int64(len(fileBytes)), bytes.NewReader(fileBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failure storing the merged snapshot: %v", err)
@@ -222,5 +238,6 @@ func Merge(ctx context.Context, s *storage.LocalFiles, src *snapshot.Hash, dest 
 	if err := os.RemoveAll(string(dest)); err != nil {
 		return fmt.Errorf("failure updating %q to point to newer snapshot %q; failure removing old files: %v", dest, mergedHash, err)
 	}
+	// 设置的checkout？
 	return Checkout(ctx, s, mergedHash, dest)
 }

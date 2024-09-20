@@ -57,6 +57,7 @@ type Storage interface {
 
 func snapshotFileMetadata(ctx context.Context, s Storage, p Path, info os.FileInfo, contentsHash *Hash) (*Hash, *File, error) {
 	modeLine := info.Mode().String()
+	// 这里是寻找这个文件之前的Hash
 	prevFileHash, prev, err := s.FindSnapshot(ctx, p)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, nil, fmt.Errorf("failure looking up the previous file snapshot: %v", err)
@@ -169,6 +170,8 @@ func snapshotLink(ctx context.Context, s Storage, p Path, info os.FileInfo) (*Ha
 // The returned value is the hash of the generated `snapshot.File` object.
 func Current(ctx context.Context, s Storage, p Path) (*Hash, *File, error) {
 	if s.Exclude(p) {
+		// 我们不应该为给定路径存储快照，所以假装它不存在。
+		// 本地文件系统实现的Storage解决的是不跟 ~/.rvcs/archive冲突
 		// We are not supposed to store snapshots for the given path, so pretend it does not exist.
 		return nil, nil, nil
 	}
@@ -181,6 +184,7 @@ func Current(ctx context.Context, s Storage, p Path) (*Hash, *File, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failure reading the file stat for %q: %v", p, err)
 	}
+	// &运算判断是否是符号连接
 	if stat.Mode()&fs.ModeSymlink != 0 {
 		return snapshotLink(ctx, s, p, stat)
 	}

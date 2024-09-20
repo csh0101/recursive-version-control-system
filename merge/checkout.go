@@ -182,12 +182,16 @@ func Checkout(ctx context.Context, s *storage.LocalFiles, h *snapshot.Hash, p sn
 		return nil
 	}
 	parent := filepath.Dir(string(p))
+	// 创建目录
 	if err := os.MkdirAll(parent, os.FileMode(0700)); err != nil {
 		return fmt.Errorf("failure ensuring the parent directory of %q exists: %v", p, err)
 	}
+	// 重新创建一个文件
 	if err := recreateFile(ctx, s, h, f, p); err != nil {
 		return fmt.Errorf("failure checking out the snapshot %q to the path %q: %v", h, p, err)
 	}
+
+	// 保存快照
 	if _, err := s.StoreSnapshot(ctx, p, f); err != nil {
 		return fmt.Errorf("failure updating the snapshot for %q to %q: %v", p, h, err)
 	}

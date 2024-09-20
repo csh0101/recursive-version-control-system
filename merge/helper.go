@@ -35,7 +35,9 @@ const (
 )
 
 func mergeWithHelper(ctx context.Context, s *storage.LocalFiles, p snapshot.Path, mode string, base, src, dest *snapshot.Hash) (*snapshot.Hash, error) {
+	// 获取帮助命令 (外部的binary 理解)
 	helperCmd := os.Getenv(HelperEnvironmentVariable)
+	// 获取binary的参数
 	helperArgs := os.Getenv(HelperArgsEnvironmentVariable)
 	if len(helperCmd) == 0 {
 		helperCmd = "diff3"
@@ -43,10 +45,12 @@ func mergeWithHelper(ctx context.Context, s *storage.LocalFiles, p snapshot.Path
 			helperArgs = "[\"-m\"]"
 		}
 	}
+	// 构造入参
 	var args []string
 	if err := json.Unmarshal([]byte(helperArgs), &args); err != nil {
 		return nil, fmt.Errorf("failure parsing the helper args %q: %v", helperArgs, err)
 	}
+
 	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("rvcs-merge-helper-%q", helperCmd))
 	if err != nil {
 		return nil, fmt.Errorf("failure generating the temporary working directory for the merge helper %q: %v", helperCmd, err)

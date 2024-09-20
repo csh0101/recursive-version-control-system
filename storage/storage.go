@@ -140,6 +140,7 @@ func (s *LocalFiles) StoreObject(ctx context.Context, size int64, reader io.Read
 	if h == nil {
 		return nil, errors.New("unexpected nil hash for an object")
 	}
+	//获得保存的位置
 	storageLocation, err := s.objectStoragePath(ctx, objectsSubDir, h, encrypted)
 	if err != nil {
 		return nil, fmt.Errorf("failure preparing the storage location for %q: %v", h, err)
@@ -365,7 +366,7 @@ func (s *LocalFiles) RemoveMappingForPath(ctx context.Context, p snapshot.Path) 
 	if err != nil {
 		return fmt.Errorf("failure listing the contents of %q: %v", h, err)
 	}
-	for child, _ := range tree {
+	for child := range tree {
 		childPath := p.Join(child)
 		if err := s.RemoveMappingForPath(ctx, childPath); err != nil {
 			return fmt.Errorf("failure removing mapping for the child path %q: %v", child, err)

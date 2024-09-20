@@ -61,6 +61,7 @@ func (t Tree) String() string {
 			lines = append(lines, line)
 		}
 	}
+	// 字典序排序
 	sort.Strings(lines)
 	return strings.Join(lines, "\n")
 }

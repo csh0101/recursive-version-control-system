@@ -30,6 +30,7 @@ type Identity struct {
 
 // ParseIdentity parses the string encoding of an identity.
 func ParseIdentity(str string) (*Identity, error) {
+	// 防御性编码
 	if len(str) == 0 {
 		return nil, nil
 	}
